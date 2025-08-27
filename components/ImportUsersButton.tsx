@@ -55,7 +55,7 @@ export default function ImportUsersButton() {
         if (jiraData.total && Array.isArray(jiraData.total)) {
           const processedUsers = jiraData.total.map((user: JiraUser) => ({
             name: user.displayName,
-            avatar_url: user.self,
+            avatar_url: user.avatarUrls?.['24x24'] || '',
             account_id: user.accountId,
             account_type: user.accountType,
             role_id: 2

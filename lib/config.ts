@@ -29,6 +29,7 @@ export const API_ENDPOINTS = {
   // Node.js API endpoints
   NODE_API: {
     IMPORT_USERS: `${NODE_API_BASE_URL}/api/users/import`,
+    MY_TEAMS_TEAMS_DATA: `${NODE_API_BASE_URL}/api/myteams/teams-data`,
   },
   
   // Team endpoints

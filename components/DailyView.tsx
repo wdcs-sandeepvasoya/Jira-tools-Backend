@@ -1,14 +1,45 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { API_ENDPOINTS } from '@/lib/config'
+import { authenticatedFetch, getUser } from '@/utils/auth'
 
-interface UserLog {
+interface User {
   id: number
   name: string
-  initials: string
-  avatarColor: string
-  hoursLogged: number
-  hasLogs: boolean
+  urls: string[]
+  jiraLogs: JiraLog[]
+}
+
+interface JiraLog {
+  id: string
+  taskId: string
+  description: string
+  date: string
+  hours: number
+  emoji?: string
+  flag?: string
+  started_at?: string
+}
+
+interface Team {
+  id: number
+  name: string
+  users: User[]
+  // optional type to support icons/colors
+  type?: 'engineering' | 'qa' | 'design' | 'other'
+}
+
+interface CalendarApiResponse {
+  success?: boolean
+  data?: Record<string, Team[]>
+  // allow fallback if API returns plain mapping
+  [key: string]: any
+}
+
+interface CalendarDay {
+  date: number
+  teams: Team[]
 }
 
 interface DailyViewProps {
@@ -16,16 +47,347 @@ interface DailyViewProps {
 }
 
 export default function DailyView({ currentDate = new Date() }: DailyViewProps) {
-  const [activeTab, setActiveTab] = useState<'daily' | 'jira-users' | 'my-team'>('daily')
-  const [showMissingHours, setShowMissingHours] = useState(true)
   const [currentMonth, setCurrentMonth] = useState(currentDate)
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [showTeamModal, setShowTeamModal] = useState(false)
+  const [showUserModal, setShowUserModal] = useState(false)
+  const [calendarData, setCalendarData] = useState<Record<string, Team[]>>({})
+  const [isLoading, setIsLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [hoursFilter, setHoursFilter] = useState<'below' | 'above'>('below')
+  const [userInputs, setUserInputs] = useState<Record<number, string>>({})
+  const [commonNote, setCommonNote] = useState<string>('')
 
-  // Sample user data
-  const users: UserLog[] = [
-    { id: 1, name: 'Nikhil Vibhani', initials: 'NV', avatarColor: 'bg-purple-500', hoursLogged: 0, hasLogs: false },
-    { id: 2, name: 'Vyas Tejas', initials: 'VT', avatarColor: 'bg-teal-500', hoursLogged: 0, hasLogs: false },
-    { id: 3, name: 'Urmil Patel', initials: 'UP', avatarColor: 'bg-blue-500', hoursLogged: 0, hasLogs: false },
-  ]
+  // Handle escape key to close modals
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowTeamModal(false)
+        setShowUserModal(false)
+      }
+    }
+
+    if (showTeamModal || showUserModal) {
+      document.addEventListener('keydown', handleEscape)
+      return () => document.removeEventListener('keydown', handleEscape)
+    }
+  }, [showTeamModal, showUserModal])
+  const sampleData: { [key: string]: Team[] } = {
+    '1': [
+      {
+        id: 1,
+        name: 'Team-1',
+        users: [
+          {
+            id: 1,
+            name: 'Parmar Makesh',
+            urls: ['https://examol.comjj'],
+            jiraLogs: [
+              {
+                id: '1',
+                taskId: 'TIOM-137',
+                description: 'Parmar Makesh — August 25',
+                date: 'August 25',
+                hours: 8.5,
+                emoji: '👋',
+                flag: '🇮🇳'
+              },
+              {
+                id: '2',
+                taskId: 'TIOM-138',
+                description: 'Parmar Makesh — August 25',
+                date: 'August 25',
+                hours: 8.5,
+                emoji: '👋',
+                flag: '🇮🇳'
+              },
+            ]
+          },
+          {
+            id: 2,
+            name: 'Mayur Patel',
+            urls: ['https://demo.com/patel', 'https://example.com/mayur'],
+            jiraLogs: [
+              {
+                id: '2',
+                taskId: 'TIOM-138',
+                description: 'Mayur Patel — August 25',
+                date: 'August 25',
+                hours: 7.5
+              }
+            ]
+          },
+          {
+            id: 3,
+            name: 'Park Mahesh',
+            urls: ['https://park.com/mahesh'],
+            jiraLogs: [
+              {
+                id: '3',
+                taskId: 'TIOM-139',
+                description: 'Park Mahesh — August 25',
+                date: 'August 25',
+                hours: 6.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        id: 2,
+        name: 'Team-2',
+        users: [
+          {
+            id: 4,
+            name: 'Tarang Patel',
+            urls: ['https://tarang.com/patel'],
+            jiraLogs: [
+              {
+                id: '4',
+                taskId: 'TIOM-140',
+                description: 'Tarang Patel — August 25',
+                date: 'August 25',
+                hours: 8.0
+              }
+            ]
+          },
+          {
+            id: 5,
+            name: 'Yash Shah',
+            urls: ['https://demo.com/hhf/66', 'https://examol.comj'],
+            jiraLogs: [
+              {
+                id: '5',
+                taskId: 'TIOM-141',
+                description: 'Yash Shah — August 25',
+                date: 'August 25',
+                hours: 7.0
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    '2': [
+      {
+        id: 3,
+        name: 'Team-3',
+        users: [
+          {
+            id: 6,
+            name: 'John Doe',
+            urls: ['https://john.com/doe'],
+            jiraLogs: [
+              {
+                id: '6',
+                taskId: 'TIOM-142',
+                description: 'John Doe — August 25',
+                date: 'August 25',
+                hours: 6.5
+              }
+            ]
+          }
+        ]
+      },
+      {
+        id: 2,
+        name: 'Team-2',
+        users: [
+          {
+            id: 4,
+            name: 'Tarang Patel',
+            urls: ['https://tarang.com/patel'],
+            jiraLogs: [
+              {
+                id: '4',
+                taskId: 'TIOM-140',
+                description: 'Tarang Patel — August 25',
+                date: 'August 25',
+                hours: 8.0
+              }
+            ]
+          },
+          {
+            id: 5,
+            name: 'Yash Shah',
+            urls: ['https://demo.com/hhf/66', 'https://examol.comj'],
+            jiraLogs: [
+              {
+                id: '5',
+                taskId: 'TIOM-141',
+                description: 'Yash Shah — August 25',
+                date: 'August 25',
+                hours: 7.0
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    '15': [
+      {
+        id: 1,
+        name: 'Team-1',
+        users: [
+          {
+            id: 1,
+            name: 'Parmar Makesh',
+            urls: ['https://examol.comjj'],
+            jiraLogs: [
+              {
+                id: '1',
+                taskId: 'TIOM-137',
+                description: 'Parmar Makesh — August 25',
+                date: 'August 25',
+                hours: 8.5,
+                emoji: '👋',
+                flag: '🇮🇳'
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    '20': [
+      {
+        id: 4,
+        name: 'Team-4',
+        users: [
+          {
+            id: 7,
+            name: 'Jane Smith',
+            urls: ['https://jane.com/smith', 'https://smith.com/jane'],
+            jiraLogs: [
+              {
+                id: '7',
+                taskId: 'TIOM-143',
+                description: 'Jane Smith — August 25',
+                date: 'August 25',
+                hours: 7.5
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+  
+  
+  const getMonthIndex = (monthName: string): number => {
+    const months = ['january','february','march','april','may','june','july','august','september','october','november','december']
+    return months.indexOf(monthName.toLowerCase())
+  }
+
+  // Extract normalized Y/M/D from a log
+  const getYMDFromLog = (log: JiraLog, fallbackYear: number): { y: number, m: number, d: number } | null => {
+    if (log.started_at) {
+      const d = new Date(log.started_at)
+      if (isNaN(d.getTime())) return null
+      // Use UTC to avoid timezone shifting the date
+      return { y: d.getUTCFullYear(), m: d.getUTCMonth(), d: d.getUTCDate() }
+    }
+    if (log.date) {
+      // Support values like "August 25"
+      const parts = log.date.trim().split(/\s+/)
+      if (parts.length >= 2) {
+        const monthIdx = getMonthIndex(parts[0])
+        const day = parseInt(parts[1], 10)
+        if (monthIdx >= 0 && !isNaN(day)) {
+          return { y: fallbackYear, m: monthIdx, d: day }
+        }
+      }
+      // Fallback: attempt to parse and then normalize to local Y/M/D
+      const d2 = new Date(`${log.date} ${fallbackYear}`)
+      if (isNaN(d2.getTime())) return null
+      return { y: d2.getFullYear(), m: d2.getMonth(), d: d2.getDate() }
+    }
+    return null
+  }
+
+  const sameMonthAndYear = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()
+
+  const rebuildMappingFromSource = (source: Record<string, Team[]> | Team[], monthDate: Date): Record<string, Team[]> => {
+    const teamsArray: Team[] = Array.isArray(source)
+      ? source as Team[]
+      : Object.values(source as Record<string, Team[]>).flat()
+
+    const byDay: Record<string, Team[]> = {}
+
+    const ensureTeam = (dayKey: string, t: Team): Team => {
+      if (!byDay[dayKey]) byDay[dayKey] = []
+      let entry = byDay[dayKey].find(x => x.id === t.id)
+      if (!entry) {
+        entry = { id: t.id, name: t.name, users: [], type: t.type }
+        byDay[dayKey].push(entry)
+      }
+      return entry
+    }
+
+    const targetYear = monthDate.getFullYear()
+    const targetMonth = monthDate.getMonth()
+
+    teamsArray.forEach(team => {
+      (team.users || []).forEach(user => {
+        (user.jiraLogs || []).forEach(log => {
+          const ymd = getYMDFromLog(log, targetYear)
+          if (!ymd) return
+          if (ymd.y !== targetYear || ymd.m !== targetMonth) return
+          const dayKey = String(ymd.d)
+          const teamEntry = ensureTeam(dayKey, team)
+
+          // attach this user's logs for this day only, using UTC-aware parsing
+          const dayLogs = (user.jiraLogs || []).filter(l => {
+            const p = getYMDFromLog(l, targetYear)
+            return !!p && p.y === targetYear && p.m === targetMonth && p.d === ymd.d
+          })
+          if (!teamEntry.users.find(u => u.id === user.id)) {
+            teamEntry.users.push({ ...user, jiraLogs: dayLogs })
+          }
+        })
+      })
+    })
+
+    return byDay
+  }
+
+  // Fetch teams data for month
+  useEffect(() => {
+    const fetchCalendarData = async () => {
+      try {
+        setIsLoading(true)
+        setErrorMessage(null)
+        const currentUser = getUser()
+        const body = {
+          loginUserId: currentUser?.id ?? 1,
+          month: currentMonth.getMonth() + 1,
+          year: currentMonth.getFullYear(),
+          hoursFilter: hoursFilter
+        }
+        const res = await authenticatedFetch(API_ENDPOINTS.NODE_API.MY_TEAMS_TEAMS_DATA, {
+          method: 'POST',
+          body: JSON.stringify(body)
+        })
+        const payload: CalendarApiResponse = await res.json()
+        // Accept mapping if provided, but rebuild by started_at to be safe
+        let source: Record<string, Team[]> | Team[] = sampleData
+        if (payload && payload.data) {
+          source = payload.data as Record<string, Team[]> | Team[]
+        }
+        const mapping = rebuildMappingFromSource(source, currentMonth)
+        setCalendarData(mapping)
+      } catch (err) {
+        console.error('Failed to load calendar data', err)
+        setErrorMessage('Failed to load teams data')
+        // Fallback to local sample rebuilt mapping so UI still shows something
+        setCalendarData(rebuildMappingFromSource([], currentMonth))
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchCalendarData()
+  }, [currentMonth, hoursFilter])
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear()
@@ -61,38 +423,78 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
            today.getFullYear() === currentMonth.getFullYear()
   }
 
+  const getTeamsForDate = (day: number): Team[] => {
+    return calendarData[day.toString()] || []
+  }
+
+  const handleTeamClick = (team: Team) => {
+    setSelectedTeam(team)
+    setShowTeamModal(true)
+  }
+
+  const handleUserClick = (user: User) => {
+    setSelectedUser(user)
+    setShowUserModal(true)
+  }
+
+  const openUrl = (url: string) => {
+    window.open(url, '_blank')
+  }
+
+  const getUserTotalHours = (user: User): number => {
+    return (user.jiraLogs || []).reduce((sum, log) => sum + (log.hours || 0), 0)
+  }
+
+  const handleUserInputChange = (userId: number, value: string) => {
+    setUserInputs(prev => ({ ...prev, [userId]: value }))
+  }
+
+  const handleSendSelected = () => {
+    const payload = (selectedTeam?.users || [])
+      .filter(u => {
+        const total = getUserTotalHours(u)
+        return hoursFilter === 'below' ? total < 8 : total >= 8
+      })
+      .map(u => ({ userId: u.id, input: (commonNote || userInputs[u.id] || '').trim() }))
+      .filter(entry => entry.input.length > 0)
+    console.log('Send note to users (filtered):', payload)
+  }
+
   const renderCalendar = () => {
     const { daysInMonth, startingDayOfWeek } = getDaysInMonth(currentMonth)
     const days = []
     
     // Add empty cells for days before the month starts
     for (let i = 0; i < startingDayOfWeek; i++) {
-      days.push(<div key={`empty-${i}`} className="p-2"></div>)
+      days.push(<div key={`empty-${i}`} className="p-3"></div>)
     }
     
     // Add days of the month
     for (let day = 1; day <= daysInMonth; day++) {
+      const teams = getTeamsForDate(day)
+      const teamColors = ['bg-blue-100 text-blue-800', 'bg-green-100 text-green-800', 'bg-orange-100 text-orange-800', 'bg-purple-100 text-purple-800', 'bg-pink-100 text-pink-800']
+      
       days.push(
-        <div key={day} className="p-2 border border-gray-200 min-h-[120px]">
-          <div className={`text-sm font-medium mb-2 ${isCurrentDate(day) ? 'bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center' : ''}`}>
+        <div key={day} className="p-3 border border-gray-200 min-h-[140px] hover:bg-gray-50 transition-all duration-200 ease-in-out rounded-lg">
+          <div className={`text-sm font-bold mb-3 ${isCurrentDate(day) ? 'bg-blue-500 text-white rounded-full w-7 h-7 flex items-center justify-center' : 'text-gray-900'}`}>
             {day}
           </div>
-          <div className="space-y-1">
-            {users.map(user => (
-              <div key={`${day}-${user.id}`} className="bg-pink-100 border border-pink-200 rounded p-2 text-xs">
-                <div className="flex items-center space-x-2">
-                  <div className={`w-6 h-6 rounded-full ${user.avatarColor} text-white text-xs flex items-center justify-center font-medium`}>
-                    {user.initials}
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-900">{user.name}</div>
-                    <div className="text-gray-600">
-                      {user.hasLogs ? `${user.hoursLogged}h logged` : '0h (no logs)'}
-                    </div>
-                  </div>
+          <div className="space-y-2">
+            {teams.length > 0 ? (
+              teams.map((team, index) => (
+                <div 
+                  key={team.id} 
+                  className={`text-sm px-2 py-1 rounded-full font-medium cursor-pointer transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-sm ${teamColors[index % teamColors.length]} border border-transparent hover:border-gray-300`}
+                  onClick={() => handleTeamClick(team)}
+                >
+                  {team.name}
                 </div>
+              ))
+            ) : (
+              <div className="text-gray-400 text-sm text-center py-3">
+                No teams
               </div>
-            ))}
+            )}
           </div>
         </div>
       )
@@ -103,150 +505,315 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Top Navigation Tabs */}
+      {/* CSS for modal animations */}
+      <style jsx>{`
+        @keyframes modalEnter {
+          from {
+            transform: scale(0.95);
+            opacity: 0;
+          }
+          to {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+      `}</style>
+
+      {/* Clean Page Header */}
       <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
-            <button
-              onClick={() => setActiveTab('daily')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'daily'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Daily View
-            </button>
-            <button
-              onClick={() => setActiveTab('jira-users')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'jira-users'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Jira Users
-            </button>
-            <button
-              onClick={() => setActiveTab('my-team')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'my-team'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              My Team
-            </button>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center space-x-3">
+            <span className="text-2xl">📅</span>
+            <h1 className="text-2xl font-bold text-gray-900">Daily View</h1>
+          </div>
+          
+          {/* Hours Filter Tabs */}
+          <div className="mt-6">
+            <div className="flex items-center space-x-4">
+              <span className="text-sm font-medium text-gray-700">Show:</span>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setHoursFilter('below')}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ease-in-out ${
+                    hoursFilter === 'below'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Missing Hours (&lt;8h)
+                </button>
+                <button
+                  onClick={() => setHoursFilter('above')}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ease-in-out ${
+                    hoursFilter === 'above'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Logged Hours (≥8h)
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {activeTab === 'daily' && (
-          <div className="space-y-6">
-            {/* Daily View Header */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center space-x-3 mb-4">
-                <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <h1 className="text-2xl font-bold text-gray-900">Daily View</h1>
+        <div className="space-y-6">
+          {/* Calendar Header Controls */}
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <div className="flex items-center justify-between">
+              {/* Month Navigation */}
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => navigateMonth('prev')}
+                  className="p-2 rounded-md hover:bg-gray-100 transition-all duration-200 ease-in-out"
+                >
+                  <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {formatMonthYear(currentMonth)}
+                </h2>
+                <button
+                  onClick={() => navigateMonth('next')}
+                  className="p-2 rounded-md hover:bg-gray-100 transition-all duration-200 ease-in-out"
+                >
+                  <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
               </div>
               
-              {/* Toggle Buttons */}
-              <div className="flex items-center space-x-4">
-                <span className="text-sm font-medium text-gray-700">Show:</span>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => setShowMissingHours(true)}
-                    className={`px-4 py-2 text-sm font-medium rounded-md ${
-                      showMissingHours
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    Missing Hours (&lt;8h)
-                  </button>
-                  <button
-                    onClick={() => setShowMissingHours(false)}
-                    className={`px-4 py-2 text-sm font-medium rounded-md ${
-                      !showMissingHours
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    Logged Hours (≥8h)
-                  </button>
-                </div>
+              {/* Month/Year Selectors and Today Button */}
+              <div className="flex items-center space-x-3">
+                <select
+                  value={currentMonth.getMonth()}
+                  onChange={(e) => {
+                    const monthIndex = Number(e.target.value)
+                    setCurrentMonth(prev => {
+                      const d = new Date(prev)
+                      d.setMonth(monthIndex)
+                      return d
+                    })
+                  }}
+                  className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {Array.from({ length: 12 }).map((_, i) => (
+                    <option key={i} value={i}>
+                      {new Date(2000, i, 1).toLocaleString('en-US', { month: 'long' })}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={currentMonth.getFullYear()}
+                  onChange={(e) => {
+                    const year = Number(e.target.value)
+                    setCurrentMonth(prev => {
+                      const d = new Date(prev)
+                      d.setFullYear(year)
+                      return d
+                    })
+                  }}
+                  className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {Array.from({ length: 7 }).map((_, i) => {
+                    const base = new Date().getFullYear()
+                    const y = base - 3 + i
+                    return (
+                      <option key={y} value={y}>{y}</option>
+                    )
+                  })}
+                </select>
+                <button
+                  onClick={() => setCurrentMonth(new Date())}
+                  className="bg-blue-600 text-white rounded-md px-3 py-1 text-sm font-medium hover:bg-blue-700 transition-all duration-200 ease-in-out"
+                >
+                  Today
+                </button>
               </div>
             </div>
+          </div>
 
-            {/* Calendar Navigation and Actions */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-4">
-                  <button
-                    onClick={() => navigateMonth('prev')}
-                    className="p-2 rounded-md hover:bg-gray-100"
-                  >
-                    <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <h2 className="text-xl font-semibold text-gray-900">
-                    {formatMonthYear(currentMonth)}
-                  </h2>
-                  <button
-                    onClick={() => navigateMonth('next')}
-                    className="p-2 rounded-md hover:bg-gray-100"
-                  >
-                    <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
+          {/* Calendar Grid */}
+          <div className="bg-white rounded-xl shadow-md p-6">
+            {isLoading && (
+              <div className="text-sm text-gray-500 mb-3">Loading teams...</div>
+            )}
+            {errorMessage && (
+              <div className="text-sm text-red-600 mb-3">{errorMessage}</div>
+            )}
+            <div className="grid grid-cols-7 gap-1 border border-gray-200 rounded-xl overflow-hidden bg-white">
+              {/* Day Headers */}
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                <div key={day} className="bg-gray-50 p-4 text-center text-sm font-semibold text-gray-700 border-b border-gray-200">
+                  {day}
                 </div>
-                
-                <div className="flex space-x-3">
-                  <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium">
-                    Refresh Data
-                  </button>
-                  <button className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md font-medium">
-                    Trigger Log Reminder
-                  </button>
+              ))}
+              
+              {/* Calendar Days */}
+              {renderCalendar()}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Team Modal */}
+      {showTeamModal && selectedTeam && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowTeamModal(false)
+            }
+          }}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden transform scale-95 opacity-0 animate-in"
+            style={{
+              animation: 'modalEnter 0.2s ease-out forwards'
+            }}
+          >
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{selectedTeam.name}</h3>
+                  <div className="w-12 h-0.5 bg-blue-500 rounded-full"></div>
                 </div>
+                <button
+                  onClick={() => setShowTeamModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-all duration-200 ease-in-out p-1 rounded-full hover:bg-gray-100"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-
-              {/* Calendar Grid */}
-              <div className="grid grid-cols-7 gap-0 border border-gray-200 rounded-lg overflow-hidden">
-                {/* Day Headers */}
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                  <div key={day} className="bg-gray-50 p-3 text-center text-sm font-medium text-gray-700 border-r border-gray-200 last:border-r-0">
-                    {day}
+            </div>
+            <div className="p-6">
+              {hoursFilter === 'below' && (
+                <div className="mb-4 flex items-center gap-3">
+                  <input
+                    type="text"
+                    className="flex-1 h-11 border border-gray-200 rounded-lg px-3 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white placeholder:text-gray-400 shadow-inner"
+                    placeholder="Write a note to all listed members..."
+                    value={commonNote}
+                    onChange={(e) => setCommonNote(e.target.value)}
+                  />
+                  <button
+                    onClick={handleSendSelected}
+                    className="bg-blue-600 text-white text-sm font-medium px-5 py-2 rounded-lg hover:bg-blue-700 shadow-sm hover:shadow-md transition-all duration-200 ease-in-out"
+                  >
+                    Send
+                  </button>
+                </div>
+              )}
+              <div className="space-y-3">
+                {(selectedTeam.users || []).filter(u => {
+                  const total = getUserTotalHours(u)
+                  return hoursFilter === 'below' ? total < 8 : total >= 8
+                }).map(user => (
+                  <div 
+                    key={user.id}
+                    className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-xl p-3 flex items-center justify-between cursor-pointer hover:bg-white shadow-sm hover:shadow-md transition-all duration-200 ease-in-out ring-1 ring-transparent hover:ring-blue-200"
+                    onClick={() => handleUserClick(user)}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-9 h-9 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center text-sm font-semibold shadow">
+                        {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="text-gray-900 font-medium">{user.name}</div>
+                        <div className="text-gray-500 text-xs">
+                          {(() => {
+                            const total = getUserTotalHours(user)
+                            return `${total} hour${total === 1 ? '' : 's'}`
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                    {user.jiraLogs.length > 1 && (
+                      <div className="bg-blue-50 text-blue-700 text-xs font-medium px-2.5 py-1 rounded-full border border-blue-200">
+                        {user.jiraLogs.length} logs
+                      </div>
+                    )}
                   </div>
                 ))}
-                
-                {/* Calendar Days */}
-                {renderCalendar()}
+              </div>
+              
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Modal */}
+      {showUserModal && selectedUser && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowUserModal(false)
+            }
+          }}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden transform scale-95 opacity-0 animate-in"
+            style={{
+              animation: 'modalEnter 0.2s ease-out forwards'
+            }}
+          >
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{selectedUser.name}</h3>
+                  <div className="w-12 h-0.5 bg-blue-500 rounded-full"></div>
+                </div>
+                <button
+                  onClick={() => setShowUserModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-all duration-200 ease-in-out p-1 rounded-full hover:bg-gray-100"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="space-y-3">
+                {selectedUser.jiraLogs.map(log => (
+                  <div 
+                    key={log.id}
+                    className="bg-white border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-all duration-200 ease-in-out"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                          {log.taskId}
+                        </span>
+                        <svg className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </div>
+                      <span className="text-green-600 font-medium text-sm">
+                        {log.hours}h total
+                      </span>
+                    </div>
+                    <div className="text-gray-900 text-sm mb-2">
+                      {log.description}
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {log.emoji && <span className="text-lg">{log.emoji}</span>}
+                      {log.flag && <span className="text-lg">{log.flag}</span>}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
-        )}
-
-        {activeTab === 'jira-users' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Jira Users</h2>
-            <p className="text-gray-600">Jira Users content will go here.</p>
-          </div>
-        )}
-
-        {activeTab === 'my-team' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">My Team</h2>
-            <p className="text-gray-600">My Team content will go here.</p>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
