@@ -1,6 +1,7 @@
 // API Configuration
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || ''
 export const NODE_API_BASE_URL = process.env.NEXT_PUBLIC_NODE_API_URL || 'http://localhost:3000'
+export const JIRA_BASE_URL = process.env.NEXT_PUBLIC_JIRA_URL || 'https://wdcsgroup.atlassian.net'
 
 // API Endpoints
 export const API_ENDPOINTS = {
@@ -22,14 +23,16 @@ export const API_ENDPOINTS = {
   
   // Jira endpoints
   JIRA: {
-    IMPORT_USERS: `https://wdcsgroup.atlassian.net/rest/api/3/users/search?startAt=0&maxResults=50`,
+    IMPORT_USERS: `${JIRA_BASE_URL}/rest/api/3/users/search?startAt=0&maxResults=50`,
     SEARCH_WORKLOGS: `${API_BASE_URL}/api/jira/search-worklogs`,
+    BROWSE_TICKET: (ticketId: string) => `${JIRA_BASE_URL}/browse/${ticketId}`,
   },
   
   // Node.js API endpoints
   NODE_API: {
     IMPORT_USERS: `${NODE_API_BASE_URL}/api/users/import`,
     MY_TEAMS_TEAMS_DATA: `${NODE_API_BASE_URL}/api/myteams/teams-data`,
+    SEND_EMAILS: `${NODE_API_BASE_URL}/api/email/send-emails`,
   },
   
   // Team endpoints

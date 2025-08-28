@@ -16,7 +16,7 @@ interface JiraLog {
   taskId: string
   description: string
   date: string
-  hours: number
+  time_spent_seconds: number
   emoji?: string
   flag?: string
   started_at?: string
@@ -56,8 +56,14 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [hoursFilter, setHoursFilter] = useState<'below' | 'above'>('below')
-  const [userInputs, setUserInputs] = useState<Record<number, string>>({})
+  const [selectBelowOnly, setSelectBelowOnly] = useState<boolean>(true)
+  const [userInputs, setUserInputs] = useState<Record<string, string>>({})
   const [commonNote, setCommonNote] = useState<string>('')
+  const [sendValidation, setSendValidation] = useState<string>('')
+  const [emailInput, setEmailInput] = useState<string>('')
+  const [emailChips, setEmailChips] = useState<Array<{name: string, email: string}>>([])
+  const [isSending, setIsSending] = useState<boolean>(false)
+  const [selectedDay, setSelectedDay] = useState<number | null>(null)
 
   // Handle escape key to close modals
   useEffect(() => {
@@ -89,7 +95,7 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
                 taskId: 'TIOM-137',
                 description: 'Parmar Makesh — August 25',
                 date: 'August 25',
-                hours: 8.5,
+                time_spent_seconds: 8.5 * 3600,
                 emoji: '👋',
                 flag: '🇮🇳'
               },
@@ -98,7 +104,7 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
                 taskId: 'TIOM-138',
                 description: 'Parmar Makesh — August 25',
                 date: 'August 25',
-                hours: 8.5,
+                time_spent_seconds: 8.5 * 3600,
                 emoji: '👋',
                 flag: '🇮🇳'
               },
@@ -114,7 +120,7 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
                 taskId: 'TIOM-138',
                 description: 'Mayur Patel — August 25',
                 date: 'August 25',
-                hours: 7.5
+                time_spent_seconds: 7.5 * 3600
               }
             ]
           },
@@ -128,7 +134,7 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
                 taskId: 'TIOM-139',
                 description: 'Park Mahesh — August 25',
                 date: 'August 25',
-                hours: 6.0
+                time_spent_seconds: 6.0 * 3600
               }
             ]
           }
@@ -148,7 +154,7 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
                 taskId: 'TIOM-140',
                 description: 'Tarang Patel — August 25',
                 date: 'August 25',
-                hours: 8.0
+                time_spent_seconds: 8.0 * 3600
               }
             ]
           },
@@ -162,7 +168,7 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
                 taskId: 'TIOM-141',
                 description: 'Yash Shah — August 25',
                 date: 'August 25',
-                hours: 7.0
+                time_spent_seconds: 7.0 * 3600
               }
             ]
           }
@@ -184,7 +190,7 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
                 taskId: 'TIOM-142',
                 description: 'John Doe — August 25',
                 date: 'August 25',
-                hours: 6.5
+                time_spent_seconds: 6.5 * 3600
               }
             ]
           }
@@ -204,7 +210,7 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
                 taskId: 'TIOM-140',
                 description: 'Tarang Patel — August 25',
                 date: 'August 25',
-                hours: 8.0
+                time_spent_seconds: 8.0 * 3600
               }
             ]
           },
@@ -218,7 +224,7 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
                 taskId: 'TIOM-141',
                 description: 'Yash Shah — August 25',
                 date: 'August 25',
-                hours: 7.0
+                time_spent_seconds: 7.0 * 3600
               }
             ]
           }
@@ -240,7 +246,7 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
                 taskId: 'TIOM-137',
                 description: 'Parmar Makesh — August 25',
                 date: 'August 25',
-                hours: 8.5,
+                time_spent_seconds: 8.5 * 3600,
                 emoji: '👋',
                 flag: '🇮🇳'
               }
@@ -264,7 +270,7 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
                 taskId: 'TIOM-143',
                 description: 'Jane Smith — August 25',
                 date: 'August 25',
-                hours: 7.5
+                time_spent_seconds: 7.5 * 3600
               }
             ]
           }
@@ -306,6 +312,30 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
   }
 
   const sameMonthAndYear = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()
+
+  const formatTimeFromSeconds = (seconds: number): string => {
+    if (!seconds || seconds <= 0) return '0h'
+    
+    const hours = Math.floor(seconds / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+    const remainingSeconds = seconds % 60
+    
+    if (hours > 0 && minutes > 0 && remainingSeconds > 0) {
+      return `${hours.toString().padStart(2, '0')}h ${minutes.toString().padStart(2, '0')}m ${remainingSeconds.toString().padStart(2, '0')}s`
+    } else if (hours > 0 && minutes > 0) {
+      return `${hours.toString().padStart(2, '0')}h ${minutes.toString().padStart(2, '0')}m`
+    } else if (hours > 0) {
+      return `${hours}h`
+    } else if (minutes > 0) {
+      return `${minutes}m`
+    } else {
+      return `${remainingSeconds}s`
+    }
+  }
+
+  const getUserTotalTime = (user: User): number => {
+    return (user.jiraLogs || []).reduce((sum, log) => sum + (log.time_spent_seconds || 0), 0)
+  }
 
   const rebuildMappingFromSource = (source: Record<string, Team[]> | Team[], monthDate: Date): Record<string, Team[]> => {
     const teamsArray: Team[] = Array.isArray(source)
@@ -427,8 +457,13 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
     return calendarData[day.toString()] || []
   }
 
-  const handleTeamClick = (team: Team) => {
+  const handleTeamClick = (team: Team, day: number) => {
     setSelectedTeam(team)
+    setSelectedDay(day)
+    setCommonNote('')
+    setSendValidation('')
+    setEmailChips([])
+    setEmailInput('')
     setShowTeamModal(true)
   }
 
@@ -441,23 +476,114 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
     window.open(url, '_blank')
   }
 
-  const getUserTotalHours = (user: User): number => {
-    return (user.jiraLogs || []).reduce((sum, log) => sum + (log.hours || 0), 0)
-  }
-
   const handleUserInputChange = (userId: number, value: string) => {
     setUserInputs(prev => ({ ...prev, [userId]: value }))
   }
 
-  const handleSendSelected = () => {
-    const payload = (selectedTeam?.users || [])
-      .filter(u => {
-        const total = getUserTotalHours(u)
-        return hoursFilter === 'below' ? total < 8 : total >= 8
+  const validateEmails = (text: string): boolean => {
+    // Regex for email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    
+    // Split by comma and clean up whitespace
+    const emails = text.split(',').map(email => email.trim()).filter(email => email.length > 0)
+    
+    // Check if all emails are valid
+    return emails.every(email => emailRegex.test(email))
+  }
+
+  const addEmailChip = () => {
+    const email = emailInput.trim()
+    if (!email) return
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      setSendValidation('Please enter a valid email address')
+      return
+    }
+    
+    // Check if email already exists
+    if (emailChips.some(chip => chip.email === email)) {
+      setSendValidation('This email is already added')
+      return
+    }
+    
+    // Try to find user by name in the team (using email prefix)
+    const emailPrefix = email.split('@')[0].toLowerCase()
+    const user = selectedTeam?.users.find(u => 
+      u.name.toLowerCase().includes(emailPrefix)
+    )
+    
+    //const name = user ? user.name : emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1)
+    const name = "Hello greeting from WDCS";
+    
+    setEmailChips(prev => [...prev, { name, email }])
+    setEmailInput('')
+    setSendValidation('')
+  }
+  
+  const removeEmailChip = (emailToRemove: string) => {
+    setEmailChips(prev => prev.filter(chip => chip.email !== emailToRemove))
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      addEmailChip()
+    }
+  }
+
+  const handleSendSelected = async () => {
+    if (emailChips.length === 0) {
+      setSendValidation('Please add at least one email address')
+      return
+    }
+    
+    setIsSending(true)
+    setSendValidation('')
+    
+    try {
+      const payload = {
+        date: `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`,
+        emails: emailChips
+      }
+      
+      console.log('Sending emails with payload:', payload)
+      
+      const response = await fetch(API_ENDPOINTS.NODE_API.SEND_EMAILS, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
       })
-      .map(u => ({ userId: u.id, input: (commonNote || userInputs[u.id] || '').trim() }))
-      .filter(entry => entry.input.length > 0)
-    console.log('Send note to users (filtered):', payload)
+      
+      if (response.ok) {
+        setSendValidation('Emails sent successfully!')
+        // Clear form after successful send
+        setTimeout(() => {
+          setEmailChips([])
+          setSendValidation('')
+        }, 2000)
+      } else {
+        const errorData = await response.json()
+        setSendValidation(`Failed to send emails: ${errorData.message || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error sending emails:', error)
+      setSendValidation('Failed to send emails. Please try again.')
+    } finally {
+      setIsSending(false)
+    }
+  }
+
+  const formatSelectedDate = (): string => {
+    if (selectedDay === null) return ''
+    const selectedDate = new Date(currentMonth)
+    selectedDate.setDate(selectedDay)
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+    return `${dayNames[selectedDate.getDay()]}, ${monthNames[selectedDate.getMonth()]} ${selectedDate.getDate()}, ${selectedDate.getFullYear()}`
   }
 
   const renderCalendar = () => {
@@ -485,7 +611,7 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
                 <div 
                   key={team.id} 
                   className={`text-sm px-2 py-1 rounded-full font-medium cursor-pointer transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-sm ${teamColors[index % teamColors.length]} border border-transparent hover:border-gray-300`}
-                  onClick={() => handleTeamClick(team)}
+                  onClick={() => handleTeamClick(team, day)}
                 >
                   {team.name}
                 </div>
@@ -698,22 +824,59 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
                   <input
                     type="text"
                     className="flex-1 h-11 border border-gray-200 rounded-lg px-3 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white placeholder:text-gray-400 shadow-inner"
-                    placeholder="Write a note to all listed members..."
-                    value={commonNote}
-                    onChange={(e) => setCommonNote(e.target.value)}
+                    placeholder="Enter email address and press Enter or click Add Email"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    onKeyPress={handleKeyPress}
                   />
                   <button
-                    onClick={handleSendSelected}
+                    onClick={addEmailChip}
                     className="bg-blue-600 text-white text-sm font-medium px-5 py-2 rounded-lg hover:bg-blue-700 shadow-sm hover:shadow-md transition-all duration-200 ease-in-out"
                   >
-                    Send
+                    Add Email
                   </button>
                 </div>
               )}
+              {sendValidation && (
+                <div className={`mb-4 p-3 rounded-lg text-sm ${
+                  sendValidation.includes('successfully') 
+                    ? 'bg-green-50 text-green-700 border border-green-200' 
+                    : 'bg-red-50 text-red-700 border border-red-200'
+                }`}>
+                  {sendValidation}
+                </div>
+              )}
               <div className="space-y-3">
+                {emailChips.map((chip, index) => (
+                  <span
+                    key={index}
+                    className="bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1.5 rounded-full flex items-center gap-1"
+                  >
+                    <span>{chip.name}</span>
+                    <button
+                      onClick={() => removeEmailChip(chip.email)}
+                      className="text-blue-800 hover:text-blue-900 text-lg"
+                    >
+                      ✗
+                    </button>
+                  </span>
+                ))}
+                
+                {emailChips.length > 0 && (
+                  <div className="pt-2">
+                    <button
+                      onClick={handleSendSelected}
+                      disabled={isSending}
+                      className="w-full bg-green-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-sm hover:shadow-md transition-all duration-200 ease-in-out"
+                    >
+                      {isSending ? 'Sending...' : 'Send Emails'}
+                    </button>
+                  </div>
+                )}
+                
                 {(selectedTeam.users || []).filter(u => {
-                  const total = getUserTotalHours(u)
-                  return hoursFilter === 'below' ? total < 8 : total >= 8
+                  const total = getUserTotalTime(u)
+                  return hoursFilter === 'below' ? total < 8 * 3600 : total >= 8 * 3600
                 }).map(user => (
                   <div 
                     key={user.id}
@@ -728,8 +891,8 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
                         <div className="text-gray-900 font-medium">{user.name}</div>
                         <div className="text-gray-500 text-xs">
                           {(() => {
-                            const total = getUserTotalHours(user)
-                            return `${total} hour${total === 1 ? '' : 's'}`
+                            const total = getUserTotalTime(user)
+                            return formatTimeFromSeconds(total)
                           })()}
                         </div>
                       </div>
@@ -767,8 +930,20 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{selectedUser.name}</h3>
-                  <div className="w-12 h-0.5 bg-blue-500 rounded-full"></div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-1">{selectedUser.name}</h3>
+                  <p className="text-gray-600 text-sm mb-2">
+                    {formatSelectedDate()}
+                  </p>
+                  <div className="flex items-center space-x-2">
+                    <span className={`font-semibold text-sm px-3 py-1 rounded-md border ${
+                      hoursFilter === 'below' 
+                        ? 'text-red-600 bg-red-50 border-red-200' 
+                        : 'text-green-600 bg-green-50 border-green-200'
+                    }`}>
+                      Total: {formatTimeFromSeconds(getUserTotalTime(selectedUser))}
+                    </span>
+                    
+                  </div>
                 </div>
                 <button
                   onClick={() => setShowUserModal(false)}
@@ -792,12 +967,22 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
                         <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
                           {log.taskId}
                         </span>
-                        <svg className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg 
+                          className="h-4 w-4 text-blue-600 cursor-pointer hover:text-blue-800 transition-colors duration-200" 
+                          fill="none" 
+                          viewBox="0 0 24 24" 
+                          stroke="currentColor"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const jiraUrl = API_ENDPOINTS.JIRA.BROWSE_TICKET(log.taskId)
+                            window.open(jiraUrl, '_blank')
+                          }}
+                        >
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                         </svg>
                       </div>
                       <span className="text-green-600 font-medium text-sm">
-                        {log.hours}h total
+                        {formatTimeFromSeconds(log.time_spent_seconds)} total
                       </span>
                     </div>
                     <div className="text-gray-900 text-sm mb-2">
