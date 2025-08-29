@@ -514,8 +514,8 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
       u.name.toLowerCase().includes(emailPrefix)
     )
     
-    //const name = user ? user.name : emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1)
-    const name = "Hello greeting from WDCS";
+    const name = user ? user.name : emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1)
+    //const name = "Hello greeting from WDCS";
     
     setEmailChips(prev => [...prev, { name, email }])
     setEmailInput('')
@@ -935,14 +935,15 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
                     {formatSelectedDate()}
                   </p>
                   <div className="flex items-center space-x-2">
-                    <span className={`font-semibold text-sm px-3 py-1 rounded-md border ${
-                      hoursFilter === 'below' 
-                        ? 'text-red-600 bg-red-50 border-red-200' 
-                        : 'text-green-600 bg-green-50 border-green-200'
-                    }`}>
-                      Total: {formatTimeFromSeconds(getUserTotalTime(selectedUser))}
-                    </span>
-                    
+                    {getUserTotalTime(selectedUser) > 0 && (
+                      <span className={`font-semibold text-sm px-3 py-1 rounded-md border ${
+                        hoursFilter === 'below' 
+                          ? 'text-red-600 bg-red-50 border-red-200' 
+                          : 'text-green-600 bg-green-50 border-green-200'
+                      }`}>
+                        Total: {formatTimeFromSeconds(getUserTotalTime(selectedUser))}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <button
@@ -967,22 +968,24 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
                         <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
                           {log.taskId}
                         </span>
-                        <svg 
-                          className="h-4 w-4 text-blue-600 cursor-pointer hover:text-blue-800 transition-colors duration-200" 
-                          fill="none" 
-                          viewBox="0 0 24 24" 
-                          stroke="currentColor"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            const jiraUrl = API_ENDPOINTS.JIRA.BROWSE_TICKET(log.taskId)
-                            window.open(jiraUrl, '_blank')
-                          }}
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
+                        {log.time_spent_seconds > 0 && (
+                          <svg 
+                            className="h-4 w-4 text-blue-600 cursor-pointer hover:text-blue-800 transition-colors duration-200" 
+                            fill="none" 
+                            viewBox="0 0 24 24" 
+                            stroke="currentColor"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const jiraUrl = API_ENDPOINTS.JIRA.BROWSE_TICKET(log.taskId)
+                              window.open(jiraUrl, '_blank')
+                            }}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        )}
                       </div>
                       <span className="text-green-600 font-medium text-sm">
-                        {formatTimeFromSeconds(log.time_spent_seconds)} total
+                        {log.time_spent_seconds > 0 ? `${formatTimeFromSeconds(log.time_spent_seconds)} total` : ''}
                       </span>
                     </div>
                     <div className="text-gray-900 text-sm mb-2">
