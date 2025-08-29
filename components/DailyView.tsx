@@ -651,38 +651,38 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
           <div className="flex items-center space-x-3">
             <span className="text-2xl">📅</span>
             <h1 className="text-2xl font-bold text-gray-900">Daily View</h1>
-          </div>
-          
+      </div>
+
           {/* Hours Filter Tabs */}
           <div className="mt-6">
             <div className="flex items-center space-x-4">
-              <span className="text-sm font-medium text-gray-700">Show:</span>
-              <div className="flex space-x-2">
-                <button
+                <span className="text-sm font-medium text-gray-700">Show:</span>
+                <div className="flex space-x-2">
+                  <button
                   onClick={() => setHoursFilter('below')}
                   className={`px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ease-in-out ${
                     hoursFilter === 'below'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  Missing Hours (&lt;8h)
-                </button>
-                <button
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    Missing Hours (&lt;8h)
+                  </button>
+                  <button
                   onClick={() => setHoursFilter('above')}
                   className={`px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ease-in-out ${
                     hoursFilter === 'above'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  Logged Hours (≥8h)
-                </button>
-              </div>
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    Logged Hours (≥8h)
+                  </button>
+                </div>
             </div>
           </div>
         </div>
-      </div>
+            </div>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -691,28 +691,28 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
           <div className="bg-white rounded-xl shadow-md p-6">
             <div className="flex items-center justify-between">
               {/* Month Navigation */}
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => navigateMonth('prev')}
+                <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => navigateMonth('prev')}
                   className="p-2 rounded-md hover:bg-gray-100 transition-all duration-200 ease-in-out"
-                >
-                  <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <h2 className="text-xl font-semibold text-gray-900">
-                  {formatMonthYear(currentMonth)}
-                </h2>
-                <button
-                  onClick={() => navigateMonth('next')}
+                  >
+                    <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    {formatMonthYear(currentMonth)}
+                  </h2>
+                  <button
+                    onClick={() => navigateMonth('next')}
                   className="p-2 rounded-md hover:bg-gray-100 transition-all duration-200 ease-in-out"
-                >
-                  <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-              
+                  >
+                    <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+                
               {/* Month/Year Selectors and Today Button */}
               <div className="flex items-center space-x-3">
                 <select
@@ -758,12 +758,12 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
                   className="bg-blue-600 text-white rounded-md px-3 py-1 text-sm font-medium hover:bg-blue-700 transition-all duration-200 ease-in-out"
                 >
                   Today
-                </button>
+                  </button>
               </div>
             </div>
-          </div>
+              </div>
 
-          {/* Calendar Grid */}
+              {/* Calendar Grid */}
           <div className="bg-white rounded-xl shadow-md p-6">
             {isLoading && (
               <div className="text-sm text-gray-500 mb-3">Loading teams...</div>
@@ -772,17 +772,17 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
               <div className="text-sm text-red-600 mb-3">{errorMessage}</div>
             )}
             <div className="grid grid-cols-7 gap-1 border border-gray-200 rounded-xl overflow-hidden bg-white">
-              {/* Day Headers */}
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                {/* Day Headers */}
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
                 <div key={day} className="bg-gray-50 p-4 text-center text-sm font-semibold text-gray-700 border-b border-gray-200">
-                  {day}
-                </div>
-              ))}
-              
-              {/* Calendar Days */}
-              {renderCalendar()}
+                    {day}
+                  </div>
+                ))}
+                
+                {/* Calendar Days */}
+                {renderCalendar()}
+              </div>
             </div>
-          </div>
         </div>
       </div>
 
@@ -844,8 +844,8 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
                     : 'bg-red-50 text-red-700 border border-red-200'
                 }`}>
                   {sendValidation}
-                </div>
-              )}
+          </div>
+        )}
               <div className="space-y-3">
                 {emailChips.map((chip, index) => (
                   <span
@@ -871,9 +871,9 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
                     >
                       {isSending ? 'Sending...' : 'Send Emails'}
                     </button>
-                  </div>
-                )}
-                
+          </div>
+        )}
+
                 {(selectedTeam.users || []).filter(u => {
                   const total = getUserTotalTime(u)
                   return hoursFilter === 'below' ? total < 8 * 3600 : total >= 8 * 3600
@@ -982,8 +982,8 @@ export default function DailyView({ currentDate = new Date() }: DailyViewProps) 
                           >
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                           </svg>
-                        )}
-                      </div>
+        )}
+      </div>
                       <span className="text-green-600 font-medium text-sm">
                         {log.time_spent_seconds > 0 ? `${formatTimeFromSeconds(log.time_spent_seconds)} total` : ''}
                       </span>
